@@ -3,6 +3,8 @@
 
 import random
 import numpy as np
+# import sys
+# np.set_printoptions(threshold=sys.maxsize)
 
 from gridutil import *
 
@@ -31,16 +33,112 @@ class LocAgent:
         self.loc_to_idx = {loc: idx for idx, loc in enumerate(self.locations)}
         self.eps_perc = eps_perc
         self.eps_move = eps_move
-
         # previous action
         self.prev_action = None
+        self.states = []
+        self.orientations = [0, 1, 2, 3]
+        for loc in self.locations:
+            for orient in self.orientations:
+                self.states.append((loc[0],loc[1],orient))
+        prob = 1.0 / (len(self.states))
+        self.P = prob * np.ones([len(self.states)], dtype=np.float)
+        self.state_to_idx = {state: idx for idx, state in enumerate(self.states)}
+        self.glob_sensor = []
+        self.detection = []
+        self.t = np.identity(len(self.states), dtype=np.float)
+        self.o = list()
 
-        self.P = None
 
     def __call__(self, percept):
         # update posterior
-        # TODO PUT YOUR CODE HERE
 
+        #Uzupelnianie macierzy t:
+
+        self.t = np.zeros((len(self.states),len(self.states)), dtype=np.float)
+        for key, value in self.state_to_idx.items():
+            self.t[value][value] = 1
+            orient = key[2]
+            if self.prev_action == "turnleft":
+                self.t[value][value] = 0.05
+                if orient == 0:
+                    next_orient = 3
+                else: next_orient = orient - 1
+                value_next = self.state_to_idx.get((key[0], key[1], next_orient))
+                self.t[value][value_next] = 0.95
+
+            if self.prev_action == "turnright":
+                self.t[value][value] = 0.05
+                if orient == 3:
+                    next_orient = 0
+                else:
+                    next_orient = orient + 1
+
+                value_next = self.state_to_idx.get((key[0], key[1], next_orient))
+                self.t[value][value_next] = 0.95
+
+            if orient == 0:
+                ori = 'N'
+            elif orient == 1:
+                ori = 'E'
+            elif orient == 2:
+                ori = 'S'
+            else:
+                ori = 'W'
+
+            if self.prev_action == "forward":
+                self.t[value][value] = 0.05
+                next_location = nextLoc((key[0], key[1]), ori)
+                if next_location not in self.walls and legalLoc(next_location, self.size):
+                    value_next = self.state_to_idx.get((next_location[0], next_location[1], orient))
+                    self.t[value][value_next] = 0.95
+                else:
+                    self.t[value][value] = 1
+        # print("Macierz self.t: ")
+        # print(self.t)
+
+
+        # Uzupelnienie macierzy o:
+
+        for key, value in self.state_to_idx.items():
+            orient = key[2]
+
+            # Sprawdzenie rzeczywistych scian
+            self.detection = self.check_real_walls(key)
+            # Zamiana odczytu sensora z lokalnego na globalny
+            self.glob_sensor = global_orient(orient, percept)
+            
+            # print("odczyt: ", percept)
+            # print("orientacja: ", orient)
+            # print("sensor_globalny: ", self.glob_sensor)
+            # print("sciany: ", self.detection)
+
+            prob_tmp = 1
+
+            if self.glob_sensor[0] != self.detection[0]:
+                prob_tmp = prob_tmp * 0.1
+            else:
+                prob_tmp = prob_tmp * 0.9
+            if self.glob_sensor[1] != self.detection[1]:
+                prob_tmp = prob_tmp * 0.1
+            else:
+                prob_tmp = prob_tmp * 0.9
+            if self.glob_sensor[2] != self.detection[2]:
+                prob_tmp = prob_tmp * 0.1
+            else:
+                prob_tmp = prob_tmp * 0.9
+            if self.glob_sensor[3] != self.detection[3]:
+                prob_tmp = prob_tmp * 0.1
+            else:
+                prob_tmp = prob_tmp * 0.9
+            self.o.append(prob_tmp)
+
+        self.O = np.array(self.o, dtype=np.float)
+        self.o.clear()
+
+        # Obliczanie self.P
+        self.temp = self.t.transpose() @ self.P
+        self.P = self.O * self.temp
+        self.P /= np.sum(self.P)
 
         # -----------------------
 
@@ -61,13 +159,9 @@ class LocAgent:
     def getPosterior(self):
         # directions in order 'N', 'E', 'S', 'W'
         P_arr = np.zeros([self.size, self.size, 4], dtype=np.float)
-
         # put probabilities in the array
-        # TODO PUT YOUR CODE HERE
-
-
-        # -----------------------
-
+        for idx, loc in enumerate(self.states):
+            P_arr[loc[0], loc[1], loc[2]] = self.P[idx]
         return P_arr
 
     def forward(self, cur_loc, cur_dir):
@@ -94,6 +188,31 @@ class LocAgent:
         ret_loc = (min(max(ret_loc[0], 0), self.size - 1), min(max(ret_loc[1], 0), self.size - 1))
         return ret_loc, cur_dir
 
+    def check_real_walls(self, key):
+        current_perception = []
+        n_location = nextLoc((key[0], key[1]), "N")
+        e_location = nextLoc((key[0], key[1]), "E")
+        s_location = nextLoc((key[0], key[1]), "S")
+        w_location = nextLoc((key[0], key[1]), "W")
+
+        if n_location in self.walls or not legalLoc(n_location, self.size):
+            current_perception.append('N')
+        else:
+            current_perception.append('X')
+        if e_location in self.walls or not legalLoc(e_location, self.size):
+            current_perception.append('E')
+        else:
+            current_perception.append('X')
+        if s_location in self.walls or not legalLoc(s_location, self.size):
+            current_perception.append('S')
+        else:
+            current_perception.append('X')
+        if w_location in self.walls or not legalLoc(w_location, self.size):
+            current_perception.append('W')
+        else:
+            current_perception.append('X')
+        return current_perception
+
     @staticmethod
     def turnright(cur_loc, cur_dir):
         dir_to_idx = {'N': 0, 'E': 1, 'S': 2, 'W': 3}
@@ -107,3 +226,4 @@ class LocAgent:
         dirs = ['N', 'E', 'S', 'W']
         idx = (dir_to_idx[cur_dir] + 4 - 1) % 4
         return cur_loc, dirs[idx]
+

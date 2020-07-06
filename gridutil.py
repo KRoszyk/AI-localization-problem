@@ -37,3 +37,78 @@ def adjacent(l1,l2):
     x2,y2 = l2
     return (abs(x1-x2) + abs(y2-y1)) == 1
 
+def global_orient(orient, percept):
+
+    new_orients = []
+
+    if orient == 0:
+        if "fwd" in percept:
+            new_orients.append('N')
+        else:
+            new_orients.append('X')
+        if "right" in percept:
+            new_orients.append('E')
+        else:
+            new_orients.append('X')
+        if "bckwd" in percept:
+            new_orients.append('S')
+        else:
+            new_orients.append('X')
+        if "left" in percept:
+            new_orients.append('W')
+        else:
+            new_orients.append('X')
+    if orient == 1:
+        if "left" in percept:
+            new_orients.append('N')
+        else:
+            new_orients.append('X')
+        if "fwd" in percept:
+            new_orients.append('E')
+        else:
+            new_orients.append('X')
+        if "right" in percept:
+            new_orients.append('S')
+        else:
+            new_orients.append('X')
+        if "bckwd" in percept:
+            new_orients.append('W')
+        else:
+            new_orients.append('X')
+    if orient == 2:
+        if "bckwd" in percept:
+            new_orients.append('N')
+        else:
+            new_orients.append('X')
+        if "left" in percept:
+            new_orients.append('E')
+        else:
+            new_orients.append('X')
+        if "fwd" in percept:
+            new_orients.append('S')
+        else:
+            new_orients.append('X')
+        if "right" in percept:
+            new_orients.append('W')
+        else:
+            new_orients.append('X')
+    if orient == 3:
+        if "right" in percept:
+            new_orients.append('N')
+        else:
+            new_orients.append('X')
+        if "bckwd" in percept:
+            new_orients.append('E')
+        else:
+            new_orients.append('X')
+        if "left" in percept:
+            new_orients.append('S')
+        else:
+            new_orients.append('X')
+        if "fwd" in percept:
+            new_orients.append('W')
+        else:
+            new_orients.append('X')
+
+    return new_orients
+
