@@ -42,7 +42,6 @@ class LocWorldEnv:
                 prob = 1.0 - self.eps_perc
             if random.random() < prob:
                 p.append(rel_dir)
-
         return p
 
     def doAction(self, action):
